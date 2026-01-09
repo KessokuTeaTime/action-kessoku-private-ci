@@ -1,15 +1,15 @@
 import * as core from "@actions/core";
 import * as http from "@actions/http-client";
-import { getReasonPhrase, StatusCodes } from "http-status-codes";
+import { StatusCodes } from "http-status-codes";
 
 export async function run(): Promise<void> {
-  // Parameters
+  // parameters
 
   const auth = core.getInput("auth").trim();
   const endpoint = core.getInput("endpoint").trim();
   const payload = JSON.parse(core.getInput("payload").trim());
 
-  // Validations
+  // validations
 
   let url = URL.parse(
     `https://api.kessokuteatime.work/${endpoint.replace(/^\//, "")}`
@@ -17,7 +17,7 @@ export async function run(): Promise<void> {
   if (!url) throw new Error(`Invalid endpoint provided: ${endpoint}`);
   if (!payload) throw new Error(`Invalid JSON payload provided: ${payload}`);
 
-  // Actions
+  // actions
 
   const client = new http.HttpClient("kessoku-private-ci");
   const headers = {
@@ -28,19 +28,29 @@ export async function run(): Promise<void> {
   const body = JSON.stringify(payload);
 
   core.info(`Posting a request to ${endpoint} with payload ${body}…`);
-  await client.post(url.toString(), body, headers).then((response) => {
-    const statusCode: StatusCodes =
-      response.message.statusCode ?? StatusCodes.INTERNAL_SERVER_ERROR;
+  await client
+    .post(url.toString(), body, headers)
+    .then(async (response: http.HttpClientResponse) => {
+      const statusCode: StatusCodes | undefined = response.message.statusCode;
+      const responseBody = await response.readBody();
+      if (statusCode) {
+        if (statusCode >= 200 && statusCode < 300) {
+          core.info(
+            `Successfully posted request to ${endpoint}: ${statusCode} ${response.message.statusMessage}`
+          );
+        } else {
+          core.setFailed(
+            `Failed to post request to ${endpoint}: ${statusCode} ${response.message.statusMessage}\n${responseBody}`
+          );
+        }
+      } else {
+        core.setFailed(
+          `Failed to post request to ${endpoint}: No response from server`
+        );
+      }
 
-    if (statusCode == StatusCodes.OK) {
-      core.info(`Successfully posted request to ${endpoint}`);
-    } else {
-      core.setFailed(
-        `Failed to post request to ${endpoint}! Server responded with ${statusCode} ${getReasonPhrase(
-          statusCode
-        )}`
-      );
-    }
-  });
+      core.info(responseBody);
+    });
+
   client.dispose();
 }
