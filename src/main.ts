@@ -40,7 +40,7 @@ export async function run(): Promise<void> {
           );
         } else {
           core.setFailed(
-            `Failed to post request to ${endpoint}: ${statusCode} ${response.message.statusMessage}\n${responseBody}`
+            `Failed to post request to ${endpoint}: ${statusCode} ${response.message.statusMessage} Body: ${responseBody}`
           );
         }
       } else {
